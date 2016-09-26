@@ -177,7 +177,7 @@ The user object needs to have several required methods, and may have several opt
 
 Where:
 
-* `id`: property of the user defined as id in `req.activator`. activator doesn't care if it is an email address, a user ID, or the colour of their parrot. `user.find()` should be able to find a user based on it.
+* `id`: property of the user defined as id in `req.activator.id` or in `req.user.id`. activator doesn't care if it is an email address, a user ID, or the colour of their parrot. `user.find()` should be able to find a user based on it.
 * `callback`: the callback function that `user.find()` should call when complete. Has the signature `callback(err,data)`. If there is an error, `data` should be `null` or `undefined`; if there is no error but no users found, both `err` *and* `data` **must** be `null` (not `undefined`). If an object is found, then `data` **must** be a single JavaScript object. The `data` object should have:
     - a property containing the user id. By default, it is named `id`, but you can override it with `config.id`.
     - a property containing the email address. By default, it is named `email`, but you can override it with `config.emailProperty`.
