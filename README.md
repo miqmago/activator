@@ -108,7 +108,7 @@ When you use activator, the steps are as follows:
 
 1. User selects "reset password" on your Web site / app
 2. You include `activator.createPasswordReset()` as the express middleware handler for the path
-3. *activator* takes the user email address from the user account, a template from the templates directory set on initialization, and the URL from initialization, creates a one-time password reset key, composes an email and sends it.
+3. *activator* takes the user email address from the user account, a template driver to get each email template with a key for each template, and the URL from initialization, creates a one-time password reset key, composes an email and sends it.
 4. The user receives the email and clicks on the link
 5. You included `activator.completePasswordReset()` as the express middleware handler for the path in the URL
 6. *activator* checks the one-time password reset key and other information against the user account, and then allows the user to reset the password
@@ -122,7 +122,7 @@ To use *activator*, you select the routes you wish to use - activator does not i
 * How to find a user, so it can check for the user
 * How to mark a user as activated, once they have sent the correct verified code
 * How to change a user's password, once they have sent the correct verified code within time and a new password
-* Where to find the templates to use for activation and password reset emails
+* How to get the email template to use for activation and password reset emails
 * What URL the user should be using to activate or reset a password. The URL is included in the email, since the user normally clicks on a link.
 
 All of these are described in greater detail below.
@@ -148,7 +148,7 @@ The `config` object passed to `activator.init()` **must** contain the following 
 * `user`: object that allows activator to find a user object, indicate activation, set a new password. See below.
 * `emailProperty`: the property of the returned user object that is the email of the recipient. Used in `user.find()`. Defaults to "email". Use dot notation to specify a property not at the root, e.g. "profiles.local.email"
 * `transport`: string or pre-configured nodemailer transport that describes how we will send email. See below.
-* `templates`: string describing the full path to the mail templates. See below.
+* `templates`: a function to request templates. See below.
 * `from`: string representing the sender for all messages
 * `signkey`: A string used to sign all of the JWT with HS256. If it is not present, activator has no way of confirming key signing between processes or from one startup of the process to the next.
 
@@ -305,7 +305,32 @@ And if all you know (or want to know) is SMTP, then just use the default SMTP co
 For details aboute nodemailer's transports, see the nodemailer transports at http://www.nodemailer.com/#available-transports
 
 ##### templates
-The directory where you keep text files that serve as mail templates. See below under the section templates.
+A function to request each email template. This function has the following signature:
+
+```js
+activator.init({
+    templates: function (key, lang, callback) { },
+    ...
+})
+```
+
+* `key`: the combination of each email and `'_'` and the type (`html` or `text`). Some example keys: `activate_text`, `activate_html`, etc.
+* `lang`: the language for the email template
+* `callback`: the function to return the requested text. Optionally this function can return a promise.
+
+If the result for the key and lang is empty, it will request a less specific language. In example, if there is only a default template and the email is being sent in `en_US`, the requests will be like this:
+
+```js
+templatesDriver('activate_text', 'en_US', function (result) {}); // If result === '' then we get a request for less specific language:
+templatesDriver('activate_text', 'en', function (result) {});
+templatesDriver('activate_text', '', function (result) {});
+
+templatesDriver('activate_html', 'en_US', function (result) {});
+templatesDriver('activate_html', 'en', function (result) {});
+templatesDriver('activate_html', '', function (result) {});
+```
+
+There is a default driver to automatically get templates from a supplied path (see below for extended explanation).
 
 ##### attachments
 The initialization object property `attachments` is an object with 0, 1 or 2 keys:
@@ -425,12 +450,7 @@ activator assumes the following:
 If it is successful resetting the password, it will return `200`, a `400` if there is an error (including invalid code), and a `404` if the user cannot be found.
 
 
-### Templates
-In order to send an email (yes, we are thinking about SMS for the future), activator needs to have templates. The templates are simple text files that contain the text or HTML to send.
-
-The templates should be in the directory passed to `activator.init()` as the option `templates`. It **must** be an absolute directory path (how else is activator going to know, relative to what??). Each template file should be named according to its function: "activate", "passwordreset" or "completepasswordreset". You can, optionally, add ".txt" to the end of the filename, if it makes your life easier.
-
-Each template file must have 3 or more lines. The first line is the `Subject` of the email; the second is ignored (I like to use '-----', but whatever works for you), the third and all other lines are the content of the email.
+### Templates format
 
 Remember, activator is a *server-side* product, so it really has no clue if the page the user should go to is https://myserver.com/funny/page/activate/fooooo.html or something a little more sane like https://myserver.com/activate.html
 
@@ -473,6 +493,22 @@ So if your password reset page is on the same host and protocol as the request t
 		Thanks! 
 		From: the MySite team
 
+
+
+### File Templates driver
+In order to send an email (yes, we are thinking about SMS for the future), activator needs to have templates.
+Activator provides a default driver to get the templates from simple text files that contain the text or HTML to send:
+
+```js
+activator.init({
+    templates: activator.filesDriver('/path/to/templates'),
+    ...
+})
+```
+
+The path **must** be an absolute directory path (how else is activator going to know, relative to what??). Each template file should be named according to its function: "activate", "passwordreset" or "completepasswordreset". You can, optionally, add ".txt" to the end of the filename, if it makes your life easier.
+
+Each template file must have 3 or more lines. The first line is the `Subject` of the email; the second is ignored (I like to use '-----', but whatever works for you), the third and all other lines are the content of the email.
 
 
 #### HTML and text templates
